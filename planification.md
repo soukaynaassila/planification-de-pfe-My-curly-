@@ -40,10 +40,13 @@ Manage orders.
 Manage reservations.
 Manage blog articles.
 Approve or reject comments.
-Manage users.
 
-3. Site Structure (Arborescence)
+ 
+3. Project Structure (My Curly)
+
 My-curly2/
+│
+├── index.php
 │
 ├── admin/
 │   ├── dashboard.php
@@ -74,12 +77,77 @@ My-curly2/
 │   └── profile.php
 │
 ├── api/
+│   ├── cart/
+│   ├── blog/
+│   ├── comments/
+│   ├── likes/
+│   ├── orders/
+│   ├── products/
+│   └── reservations/
+│
 ├── includes/
+│   ├── header.php
+│   ├── footer.php
+│   ├── admin-header.php
+│   ├── admin-footer.php
+│   ├── auth.php
+│   ├── response.php
+│   ├── sanitize.php
+│   ├── upload.php
+│   └── validate.php
+│
 ├── middleware/
+│   ├── auth.php
+│   ├── admin.php
+│   ├── api.php
+│   └── api_admin.php
+│
+├── config/
+│   ├── database.php
+│   ├── bootstrap.php
+│   └── session.php
+│
 ├── uploads/
+│   ├── products/
+│   └── blog/
+│
 ├── css/
+│   └── main.css
+│
 ├── js/
+│   └── app.js
+│
 └── database/
+    ├── mycurly.sql
+    ├── migration_v2.sql
+    ├── migration_v2_rollback.sql
+    └── images/
+
+
+Folder Description
+
+* **admin/** : Administration dashboard and management pages.
+* **auth/** : User authentication (login, register, logout).
+* **user/** : Public website pages accessible to users.
+* **api/** : AJAX endpoints used by JavaScript and frontend features.
+* **includes/** : Reusable components and helper files.
+* **middleware/** : Authentication and authorization controls.
+* **config/** : Application configuration and database connection.
+* **uploads/** : Uploaded images for products and blog posts.
+* **css/** : Stylesheets.
+* **js/** : JavaScript files.
+* **database/** : SQL schema, migrations, and database resources.
+* **index.php** : Redirects visitors to the application's homepage.
+
+````
+
+**Root Redirect**
+
+```php
+<?php
+header('Location: /My-curly2/user/index.php');
+exit;
+````
 
 4. Database Schema
 
@@ -259,58 +327,73 @@ is_active	tinyint
 sort_order	int
 created_at	timestamp
 **************************
-ERD Relationships
-Users (1) ────────< Orders (N)
-Users (1) ────────< Reservations (N)
-Users (1) ────────< Comments (N)
-Categories (1) ───< Products (N)
-Orders (1) ───────< Order Items (N)
-Blog Posts (1) ───< Comments (N)
-Blog Posts (1) ───< Likes (N)
-Services (1) ─────< Reservations (N)
+MCD(Relationships) 
+USER
+  |
+  | (1,N)
+  |
+PLACES
+  |
+  | (1,1)
+  |
+ORDER
 
-5. Wireframes
-Home Page
-+--------------------------------------------------+
-| LOGO | Home | Shop | Blog | Book | Cart | Login |
-+--------------------------------------------------+
+USER
+  |
+  | (1,N)
+  |
+WRITES
+  |
+  | (1,1)
+  |
+COMMENT
+  |
+  | (N,1)
+  |
+BLOG_POST
 
-|                HERO SECTION                      |
-|      Curly Hair Care & Beauty Products           |
-|             [Shop Now Button]                    |
+USER
+  |
+  | (1,N)
+  |
+LIKES
+  |
+  | (N,1)
+  |
+BLOG_POST
 
-+---------------- Featured Products --------------+
-| Product | Product | Product | Product |
-+---------------------------------------+
+CATEGORY
+  |
+  | (1,N)
+  |
+PRODUCT
 
-+---------------- Latest Articles ----------------+
-| Article | Article | Article |
-+---------------------------------------+
+USER
+  |
+  | (1,N)
+  |
+CART_ITEM
+  |
+  | (N,1)
+  |
+PRODUCT
 
-+---------------- Footer -------------------------+
-Product Page
-+--------------------------+
-| Product Image            |
-+--------------------------+
-| Product Name             |
-| Price                    |
-| Description              |
-| Quantity                 |
-| [Add To Cart]            |
-+--------------------------+
-Reservation Page
-+--------------------------------+
-| Book an Appointment            |
-+--------------------------------+
-| Name                           |
-| Email                          |
-| Phone                          |
-| Service 
-  where                       |
-| Date                           |
-| Time                           |
-| [Book Appointment]             |
-+--------------------------------+
+ORDER
+  |
+  | (1,N)
+  |
+ORDER_ITEM
+  |
+  | (N,1)
+  |
+PRODUCT
+
+USER
+  |
+  | (0,N)
+  |
+RESERVATION
+
 6. Technologies Used
 PHP 8
 MySQL
