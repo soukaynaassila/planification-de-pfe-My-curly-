@@ -1,0 +1,286 @@
+-- ====================================================================
+-- MY CURLY – Complete Database Schema (Rebuilt & Normalized)
+-- Engine  : InnoDB | Charset : utf8mb4_unicode_ci
+-- Usage   : Import via phpMyAdmin or: mysql -u root -p < mycurly.sql
+-- ====================================================================
+
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
+SET SQL_MODE = 'NO_AUTO_VALUE_ON_ZERO';
+
+-- ── Create & Select Database ─────────────────────────────────────
+CREATE DATABASE IF NOT EXISTS `mycurly`
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+USE `mycurly`;
+
+-- ====================================================================
+-- DROP TABLES (safe, respects FK order)
+-- ====================================================================
+/*DROP TABLE IF EXISTS ;*/
+DROP TABLE IF EXISTS `order_items`;
+DROP TABLE IF EXISTS `orders`;
+DROP TABLE IF EXISTS `cart_items`;
+DROP TABLE IF EXISTS `comments`;
+DROP TABLE IF EXISTS `likes`;
+DROP TABLE IF EXISTS `reservations`;
+DROP TABLE IF EXISTS `blog_posts`;
+DROP TABLE IF EXISTS `products`;
+DROP TABLE IF EXISTS `categories`;
+DROP TABLE IF EXISTS `users`;
+
+-- ====================================================================
+-- TABLE: users
+-- ====================================================================
+CREATE TABLE `users` (
+  `id`            INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `name`          VARCHAR(100)     NOT NULL,
+  `email`         VARCHAR(150)     NOT NULL,
+  `password`      VARCHAR(255)     NOT NULL COMMENT 'bcrypt hash via password_hash()',
+  `role`          ENUM('user','admin') NOT NULL DEFAULT 'user',
+  `created_at`    TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_users_email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ====================================================================
+-- TABLE: categories
+-- ====================================================================
+CREATE TABLE `categories` (
+  `id`            INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `name`          VARCHAR(100)     NOT NULL,
+  `slug`          VARCHAR(100)     NOT NULL,
+  `description`   TEXT,
+  `created_at`    TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_categories_slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ====================================================================
+-- TABLE: products
+-- ====================================================================
+CREATE TABLE `products` (
+  `id`            INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `category_id`   INT UNSIGNED     NULL,
+  `name`          VARCHAR(200)     NOT NULL,
+  `description`   TEXT,
+  `price`         DECIMAL(10,2)    NOT NULL DEFAULT 0.00,
+  `image`         VARCHAR(255)     NOT NULL DEFAULT '',
+  `stock`         INT              NOT NULL DEFAULT 100,
+  `is_active`     TINYINT(1)       NOT NULL DEFAULT 1,
+  `created_at`    TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_products_category` (`category_id`),
+  KEY `idx_products_active`   (`is_active`),
+  CONSTRAINT `fk_products_category`
+    FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`)
+    ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ====================================================================
+-- TABLE: blog_posts
+-- (badge = curl type label; content stored as HTML)
+-- ====================================================================
+CREATE TABLE `blog_posts` (
+  `id`            INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `title`         VARCHAR(255)     NOT NULL,
+  `slug`          VARCHAR(255)     NOT NULL,
+  `badge`         VARCHAR(100)     NOT NULL DEFAULT '' COMMENT 'e.g. Wavy Curls, Springy Curls',
+  `excerpt`       TEXT,
+  `content`       LONGTEXT         COMMENT 'HTML content shown in the modal',
+  `image`         VARCHAR(255)     NOT NULL DEFAULT '',
+  `author`        VARCHAR(100)     NOT NULL DEFAULT 'My Curly Team',
+  `is_published`  TINYINT(1)       NOT NULL DEFAULT 1,
+  `created_at`    TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`    TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_blog_slug` (`slug`),
+  KEY `idx_blog_published` (`is_published`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ====================================================================
+-- TABLE: reservations
+-- ====================================================================
+CREATE TABLE `reservations` (
+  `id`            INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `user_id`       INT UNSIGNED     NULL COMMENT 'NULL for guest bookings',
+  `name`          VARCHAR(100)     NOT NULL,
+  `email`         VARCHAR(150)     NULL,
+  `phone`         VARCHAR(20)      NULL,
+  `service`       VARCHAR(100)     NOT NULL,
+  `date`          DATE             NOT NULL,
+  `time`          VARCHAR(10)      NOT NULL,
+  `notes`         TEXT,
+  `status`        ENUM('pending','approved','cancelled') NOT NULL DEFAULT 'pending',
+  `created_at`    TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_reservations_user`   (`user_id`),
+  KEY `idx_reservations_status` (`status`),
+  KEY `idx_reservations_date`   (`date`),
+  CONSTRAINT `fk_reservations_user`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+    ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ====================================================================
+-- TABLE: comments  (for blog posts – post_id is blog_posts.id)
+-- ====================================================================
+CREATE TABLE `comments` (
+  `id`            INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `post_id`       INT UNSIGNED     NOT NULL COMMENT 'references blog_posts.id',
+  `user_id`       INT UNSIGNED     NULL,
+  `username`      VARCHAR(100)     NOT NULL DEFAULT 'Guest',
+  `content`       TEXT             NOT NULL,
+  `is_approved`   TINYINT(1)       NOT NULL DEFAULT 1,
+  `created_at`    TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_comments_post`   (`post_id`),
+  KEY `idx_comments_user`   (`user_id`),
+  CONSTRAINT `fk_comments_user`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+    ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ====================================================================
+-- TABLE: likes  (blog post reactions)
+-- ====================================================================
+CREATE TABLE `likes` (
+  `id`            INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `post_id`       INT UNSIGNED     NOT NULL COMMENT 'references blog_posts.id',
+  `user_id`       INT UNSIGNED     NULL,
+  `session_id`    VARCHAR(128)     NULL,
+  `created_at`    TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_like_user`    (`post_id`, `user_id`),
+  UNIQUE KEY `uq_like_session` (`post_id`, `session_id`),
+  CONSTRAINT `fk_likes_user`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ====================================================================
+-- TABLE: cart_items
+-- ====================================================================
+CREATE TABLE `cart_items` (
+  `id`            INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `user_id`       INT UNSIGNED     NOT NULL,
+  `product_id`    INT UNSIGNED     NOT NULL,
+  `quantity`      INT              NOT NULL DEFAULT 1,
+  `created_at`    TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_cart_user_product` (`user_id`, `product_id`),
+  KEY `idx_cart_user` (`user_id`),
+  CONSTRAINT `fk_cart_user`
+    FOREIGN KEY (`user_id`)    REFERENCES `users`    (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_cart_product`
+    FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ====================================================================
+-- TABLE: orders
+-- ====================================================================
+CREATE TABLE `orders` (
+  `id`            INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `user_id`       INT UNSIGNED     NULL,
+  `total`         DECIMAL(10,2)    NOT NULL DEFAULT 0.00,
+  `status`        ENUM('pending','processing','shipped','delivered','cancelled')
+                                   NOT NULL DEFAULT 'pending',
+  `shipping_name`    VARCHAR(100)  NULL,
+  `shipping_address` VARCHAR(255)  NULL,
+  `shipping_city`    VARCHAR(100)  NULL,
+  `shipping_phone`   VARCHAR(20)   NULL,
+  `notes`         TEXT,
+  `created_at`    TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`    TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_orders_user`   (`user_id`),
+  KEY `idx_orders_status` (`status`),
+  CONSTRAINT `fk_orders_user`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+    ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ====================================================================
+-- TABLE: order_items
+-- ====================================================================
+CREATE TABLE `order_items` (
+  `id`            INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `order_id`      INT UNSIGNED     NOT NULL,
+  `product_id`    INT UNSIGNED     NULL,
+  `product_name`  VARCHAR(200)     NOT NULL COMMENT 'snapshot at time of order',
+  `price`         DECIMAL(10,2)    NOT NULL COMMENT 'snapshot price',
+  `quantity`      INT              NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`),
+  KEY `idx_order_items_order`   (`order_id`),
+  KEY `idx_order_items_product` (`product_id`),
+  CONSTRAINT `fk_order_items_order`
+    FOREIGN KEY (`order_id`)   REFERENCES `orders`   (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_order_items_product`
+    FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ====================================================================
+-- Re-enable FK checks
+-- ====================================================================
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- ====================================================================
+-- SEED: Default Admin Account
+-- email   : admin@mycurly.com
+-- password: admin123
+-- ====================================================================
+-- RECOMMENDED: After importing, visit http://localhost/My-curly/setup_admin.php
+-- to create the admin with a fresh bcrypt hash. Then delete that file.
+--
+-- Pre-generated bcrypt hash for "admin123" (cost=10):
+INSERT INTO `users` (`name`, `email`, `password`, `role`) VALUES
+(
+  'Admin',
+  'admin@mycurly.com',
+  '$2y$10$TKh8H1.PfQx37YgCzwiKb.KjNyWgaHb9cbcoQgdIVFlYg7B77UdFm',
+  'admin'
+)
+ON DUPLICATE KEY UPDATE
+  `password` = VALUES(`password`),
+  `role`     = VALUES(`role`);
+
+-- ====================================================================
+-- SEED: Product Categories
+-- ====================================================================
+INSERT INTO `categories` (`name`, `slug`, `description`) VALUES
+('Accessories',  'accessories', 'Hair accessories for curly hair styling'),
+('Kits',         'kits',        'Complete curl care starter kits'),
+('Brushes',      'brushes',     'Detangling and styling brushes'),
+('Care',         'care',        'Leave-ins, creams, and hydration products');
+
+-- ====================================================================
+-- SEED: Products
+-- ====================================================================
+INSERT INTO `products` (`category_id`, `name`, `description`, `price`, `image`, `stock`) VALUES
+(1, 'Satin Bonnet',           'Premium satin bonnet to protect your curls while you sleep. Reduces frizz and breakage.',      100.00, 'images/bonnet.jpg',          50),
+(3, 'Detangling Brush',       'Flexible bristles that glide through curls without pulling or breaking.',                       120.00, 'images/brush.jpg',           40),
+(4, 'Curl Defining Cream',    'Rich defining cream that enhances curl pattern and eliminates frizz.',                           50.00, 'images/cuz.jpg',             60),
+(4, '2-in-1 Moisturizer',     'Dual-action leave-in conditioner and moisturizer for daily hydration.',                          45.00, 'images/2-in-1.jpg',          75),
+(2, 'Complete Curl Kit',      'Everything you need to start your curly hair journey in one package.',                          250.00, 'images/all-u-need.jpg',      20),
+(3, 'Wide Tooth Detangler',   'Wide-tooth design perfect for detangling curls gently.',                                         56.00, 'images/Detangler-brush.jpg', 45),
+(1, 'Glossy Flower Clips',    'Beautiful floral hair clips that add a touch of elegance.',                                      40.00, 'images/Glossy-flowers.jpg',  80),
+(1, 'Flexi Hair Rollers',     'Flexible rollers for defined curls without heat damage.',                                        35.00, 'images/hair-roller.jpg',     55),
+(1, 'Mini Hair Clips Set',    'Assorted mini clips perfect for styling.',                                                       39.00, 'images/hairclips.jpg',       90),
+(1, 'Wide Headbands',         'Comfortable headbands for everyday styling.',                                                    77.00, 'images/Headbands.jpg',       35),
+(1, 'Pinky Scrunchie Set',    'Satin scrunchies that protect hair from breakage.',                                              30.00, 'images/pinky.jpg',          100),
+(4, 'Hydration Spray',        'Spray bottle for refreshing and hydrating hair.',                                                45.90, 'images/spray-bottel.jpg',    65),
+(3, 'Styling Brush Set',      'Professional brushes for styling and definition.',                                               70.00, 'images/styling-brushes.jpg', 30);
+
+-- ====================================================================
+-- SEED: Blog Posts (matches the original blog.js BLOG_DATA content)
+-- ====================================================================
+INSERT INTO `blog_posts` (`title`, `slug`, `badge`, `excerpt`, `content`, `image`) VALUES
+()
+-- ====================================================================
+-- END OF SCHEMA
+-- ====================================================================
+-- Admin credentials:
+--   Email   : admin@mycurly.com
+--   Password: admin123
